@@ -1067,4 +1067,33 @@ static inline int myth_uncond_signal_body(myth_uncond_t * u) {
   return 0;
 }
 
+// __attribute__((used,noinline,sysv_abi)) 
+MYTH_CTX_CALLBACK
+void myth_uncond_signal_enter_cb(void * arg1, void * arg2, void * arg3) {
+  myth_running_env_t const env = (myth_running_env_t)arg1;
+  myth_thread_t const cur = (myth_thread_t)arg2;
+  (void)arg3;
+  
+  myth_queue_push(&env->runnable_q, cur);
+}
+
+static inline int myth_uncond_signal_enter_body(myth_uncond_t * u) {
+  myth_running_env_t const env = myth_get_current_env();
+  myth_thread_t const cur = env->this_thread;
+  myth_thread_t next = u->th;
+  
+  while (!next) {
+    next = u->th;
+  }
+  u->th = NULL;
+  
+  env->this_thread = next;
+  next->env = env;
+  
+  myth_swap_context_withcall(&cur->context, &next->context,
+    myth_uncond_signal_enter_cb, env, cur, NULL);
+  
+  return 0;
+}
+
 #endif /* MYTH_SYNC_FUNC_H_ */

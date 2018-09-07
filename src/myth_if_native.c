@@ -547,6 +547,10 @@ int myth_uncond_signal(myth_uncond_t * u) {
   return myth_uncond_signal_body(u);
 }
 
+int myth_uncond_signal_enter(myth_uncond_t * u) {
+  return myth_uncond_signal_enter_body(u);
+}
+
 /* --------------------------------
    --- thread local storage 
    -------------------------------- */
