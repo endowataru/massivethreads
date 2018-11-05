@@ -1417,7 +1417,7 @@ extern "C" {
    */
   int myth_uncond_signal(myth_uncond_t * uncond);
   
-  int myth_uncond_signal_enter(myth_uncond_t * uncond);
+  int myth_uncond_enter(myth_uncond_t * uncond);
 
   typedef int myth_key_t;
 
