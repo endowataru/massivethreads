@@ -306,4 +306,6 @@
    ------------------ */
 #define EXPERIMENTAL_SCHEDULER 0
 
+/*#define MYTH_UNCOND_ENABLE_SPIN*/
+
 #endif /* MYTH_CONFIG_H_ */

@@ -1058,9 +1058,13 @@ static inline int myth_uncond_wait_body(myth_uncond_t * u) {
 static inline int myth_uncond_signal_body(myth_uncond_t * u) {
   myth_running_env_t env = myth_get_current_env();
   myth_thread_t to_wake = u->th;
+  #ifdef MYTH_UNCOND_ENABLE_SPIN
   while (!to_wake) {
     to_wake = u->th;
   }
+  #else
+  assert(to_wake);
+  #endif
   to_wake->env = env;
   u->th = 0;
   myth_queue_push(&env->runnable_q, to_wake);
@@ -1082,9 +1086,13 @@ static inline int myth_uncond_enter_body(myth_uncond_t * u) {
   myth_thread_t const cur = env->this_thread;
   myth_thread_t next = u->th;
   
-  while (!next) {
+  #ifdef MYTH_UNCOND_ENABLE_SPIN
+  while (next == NULL) {
     next = u->th;
   }
+  #else
+  assert(next != NULL);
+  #endif
   u->th = NULL;
   
   env->this_thread = next;
@@ -1093,6 +1101,90 @@ static inline int myth_uncond_enter_body(myth_uncond_t * u) {
   myth_swap_context_withcall(&cur->context, &next->context,
     myth_uncond_enter_cb, env, cur, NULL);
   
+  return 0;
+}
+
+static int myth_uncond_swap_body(
+  myth_uncond_t * const cur_uv, myth_uncond_t * const next_uv)
+{
+  myth_running_env_t const env = myth_get_current_env();
+  myth_thread_t const cur_th = env->this_thread;
+  myth_thread_t next_th = next_uv->th;
+
+  /* Set up "next_uv". */
+  #ifdef MYTH_UNCOND_ENABLE_SPIN
+  while (next_th == NULL) {
+    next_th = next_uv->th;
+  }
+  #else
+  assert(next_th != NULL);
+  #endif
+  next_uv->th = NULL; /* for the next usage */
+
+  env->this_thread = next_th;
+  next_th->env = env;
+
+  assert(cur_uv->th == NULL);
+  cur_uv->th = cur_th;
+
+  myth_swap_context(&cur_th->context, &next_th->context);
+
+  return 0;
+}
+
+// __attribute__((used,noinline,sysv_abi))
+MYTH_CTX_CALLBACK
+void myth_uncond_swap_withcall_cb(
+  void * const arg1, void * const arg2, void * const arg3)
+{
+  myth_uncond_t * const cur_uv = (myth_uncond_t *)arg1;
+  myth_uncond_t * const next_uv = (myth_uncond_t *)arg2;
+  myth_uncond_swap_func_t const func = (myth_uncond_swap_func_t)arg3;
+
+  myth_thread_t const cur_th = (myth_thread_t)cur_uv->th;
+  myth_thread_t const next_th = (myth_thread_t)next_uv->th;
+
+  /* Call the user-defined function. */
+  const int ret = func(next_th->result);
+  if (ret) {
+    /* Switch to "next_uv". */
+    next_uv->th = NULL;
+  } else {
+    /* Return back to "cur_uv". */
+    cur_uv->th = NULL;
+    myth_set_context(&cur_th->context); /* noreturn */
+  }
+}
+
+static inline int myth_uncond_swap_withcall_body(
+  myth_uncond_t * const cur_uv, myth_uncond_t * const next_uv,
+  myth_uncond_swap_func_t const func, void * const ptr)
+{
+  myth_running_env_t const env = myth_get_current_env();
+  myth_thread_t const cur_th = env->this_thread;
+  myth_thread_t next_th = next_uv->th;
+
+  #ifdef MYTH_UNCOND_ENABLE_SPIN
+  while (next_th == NULL) {
+    next_th = next_uv->th;
+  }
+  #else
+  assert(next_th != NULL);
+  #endif
+
+  env->this_thread = next_th;
+  next_th->env = env;
+
+  assert(cur_uv->th == NULL);
+  cur_uv->th = cur_th;
+
+  /* Use the member "result" to hold the user-defined pointer value.
+     This is similar to the case of "myth_create", though it's a strange name. */
+  next_th->result = ptr;
+
+  myth_swap_context_withcall(&cur_th->context, &next_th->context,
+    myth_uncond_swap_withcall_cb, cur_uv, next_uv, func);
+
   return 0;
 }
 

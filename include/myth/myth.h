@@ -1416,8 +1416,15 @@ extern "C" {
 
    */
   int myth_uncond_signal(myth_uncond_t * uncond);
-  
+
   int myth_uncond_enter(myth_uncond_t * uncond);
+
+  int myth_uncond_swap(myth_uncond_t * cur_uv, myth_uncond_t * next_uv);
+
+  typedef int (* myth_uncond_swap_func_t)(void*);
+
+  int myth_uncond_swap_withcall(myth_uncond_t * cur_uv, myth_uncond_t * next_uv,
+    myth_uncond_swap_func_t func, void* ptr);
 
   typedef int myth_key_t;
 
