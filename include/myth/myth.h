@@ -1423,8 +1423,11 @@ extern "C" {
 
   typedef int (* myth_uncond_swap_func_t)(void*);
 
-  int myth_uncond_swap_withcall(myth_uncond_t * cur_uv, myth_uncond_t * next_uv,
-    myth_uncond_swap_func_t func, void* ptr);
+  int myth_uncond_swap_with(myth_uncond_t * cur_uv, myth_uncond_t * next_uv,
+    myth_uncond_swap_func_t func, void * ptr);
+
+  int myth_uncond_wait_with(myth_uncond_t * cur_uv,
+    myth_uncond_swap_func_t func, void * ptr);
 
   typedef int myth_key_t;
 

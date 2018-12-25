@@ -555,9 +555,14 @@ int myth_uncond_swap(myth_uncond_t * cur_uv, myth_uncond_t * next_uv) {
   return myth_uncond_swap_body(cur_uv, next_uv);
 }
 
-int myth_uncond_swap_withcall(myth_uncond_t * cur_uv, myth_uncond_t * next_uv,
+int myth_uncond_swap_with(myth_uncond_t * cur_uv, myth_uncond_t * next_uv,
     myth_uncond_swap_func_t func, void * ptr) {
-  return myth_uncond_swap_withcall_body(cur_uv, next_uv, func, ptr);
+  return myth_uncond_swap_with_body(cur_uv, next_uv, func, ptr);
+}
+
+int myth_uncond_wait_with(myth_uncond_t * cur_uv,
+    myth_uncond_swap_func_t func, void * ptr) {
+  return myth_uncond_wait_with_body(cur_uv, func, ptr);
 }
 
 /* --------------------------------

@@ -1104,7 +1104,7 @@ static inline int myth_uncond_enter_body(myth_uncond_t * u) {
   return 0;
 }
 
-static int myth_uncond_swap_body(
+static inline int myth_uncond_swap_body(
   myth_uncond_t * const cur_uv, myth_uncond_t * const next_uv)
 {
   myth_running_env_t const env = myth_get_current_env();
@@ -1134,14 +1134,13 @@ static int myth_uncond_swap_body(
 
 // __attribute__((used,noinline,sysv_abi))
 MYTH_CTX_CALLBACK
-void myth_uncond_swap_withcall_cb(
+void myth_uncond_swap_with_cb(
   void * const arg1, void * const arg2, void * const arg3)
 {
   myth_uncond_t * const cur_uv = (myth_uncond_t *)arg1;
   myth_uncond_t * const next_uv = (myth_uncond_t *)arg2;
   myth_uncond_swap_func_t const func = (myth_uncond_swap_func_t)arg3;
 
-  myth_thread_t const cur_th = (myth_thread_t)cur_uv->th;
   myth_thread_t const next_th = (myth_thread_t)next_uv->th;
 
   /* Call the user-defined function. */
@@ -1151,12 +1150,13 @@ void myth_uncond_swap_withcall_cb(
     next_uv->th = NULL;
   } else {
     /* Return back to "cur_uv". */
+    myth_thread_t const cur_th = (myth_thread_t)cur_uv->th;
     cur_uv->th = NULL;
     myth_set_context(&cur_th->context); /* noreturn */
   }
 }
 
-static inline int myth_uncond_swap_withcall_body(
+static inline int myth_uncond_swap_with_body(
   myth_uncond_t * const cur_uv, myth_uncond_t * const next_uv,
   myth_uncond_swap_func_t const func, void * const ptr)
 {
@@ -1183,7 +1183,58 @@ static inline int myth_uncond_swap_withcall_body(
   next_th->result = ptr;
 
   myth_swap_context_withcall(&cur_th->context, &next_th->context,
-    myth_uncond_swap_withcall_cb, cur_uv, next_uv, func);
+    myth_uncond_swap_with_cb, cur_uv, next_uv, func);
+
+  return 0;
+}
+
+// __attribute__((used,noinline,sysv_abi))
+MYTH_CTX_CALLBACK
+void myth_uncond_wait_with_cb(
+  void * const arg1, void * const arg2, void * const arg3)
+{
+  myth_uncond_t * const cur_uv = (myth_uncond_t *)arg1;
+  myth_uncond_swap_func_t const func = (myth_uncond_swap_func_t)arg2;
+  void * const ptr = arg3;
+
+  /* Call the user-defined function. */
+  const int ret = func(ptr);
+  if (ret) {
+    /* Switch to "next_th". */
+  } else {
+    /* Return back to "cur_uv". */
+    myth_thread_t const cur_th = (myth_thread_t)cur_uv->th;
+    cur_uv->th = NULL;
+    myth_set_context(&cur_th->context); /* noreturn */
+  }
+}
+
+static inline int myth_uncond_wait_with_body(
+  myth_uncond_t * const cur_uv,
+  myth_uncond_swap_func_t const func, void * const ptr)
+{
+  myth_running_env_t const env = myth_get_current_env();
+  myth_thread_t const cur_th = env->this_thread;
+  /* pop next thread to run */
+  myth_thread_t const next_th = myth_queue_pop(&env->runnable_q);
+  /* next context to run. either another thread
+     or the scheduler */
+  myth_context_t next_ctx;
+  env->this_thread = next_th;
+  if (next_th) {
+    /* a runnable thread */
+    next_th->env = env;
+    next_ctx = &next_th->context;
+  } else {
+    /* no runnable thread -> scheduler */
+    next_ctx = &env->sched.context;
+  }
+
+  assert(cur_uv->th == NULL);
+  cur_uv->th = cur_th;
+
+  myth_swap_context_withcall(&cur_th->context, next_ctx,
+    myth_uncond_wait_with_cb, cur_uv, func, ptr);
 
   return 0;
 }
