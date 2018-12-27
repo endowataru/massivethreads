@@ -1150,7 +1150,11 @@ void myth_uncond_swap_with_cb(
     next_uv->th = NULL;
   } else {
     /* Return back to "cur_uv". */
+    myth_running_env_t const env = next_th->env;
     myth_thread_t const cur_th = (myth_thread_t)cur_uv->th;
+    /* Reset pointers. */
+    env->this_thread = cur_th;
+    assert(cur_th->env == env);
     cur_uv->th = NULL;
     myth_set_context(&cur_th->context); /* noreturn */
   }
@@ -1204,7 +1208,14 @@ void myth_uncond_wait_with_cb(
   } else {
     /* Return back to "cur_uv". */
     myth_thread_t const cur_th = (myth_thread_t)cur_uv->th;
+    myth_running_env_t const env = cur_th->env;
+    myth_thread_t const next_th = env->this_thread;
+    env->this_thread = cur_th;
     cur_uv->th = NULL;
+    if (next_th) {
+      /* Return the thread. */
+      myth_queue_push(&env->runnable_q, next_th);
+    }
     myth_set_context(&cur_th->context); /* noreturn */
   }
 }
