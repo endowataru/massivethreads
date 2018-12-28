@@ -1063,7 +1063,7 @@ static inline int myth_uncond_signal_body(myth_uncond_t * u) {
     to_wake = u->th;
   }
   #else
-  assert(to_wake);
+  if (to_wake == NULL) { return EINVAL; }
   #endif
   to_wake->env = env;
   u->th = 0;
@@ -1091,7 +1091,7 @@ static inline int myth_uncond_enter_body(myth_uncond_t * u) {
     next = u->th;
   }
   #else
-  assert(next != NULL);
+  if (next == NULL) { return EINVAL; }
   #endif
   u->th = NULL;
   
@@ -1117,7 +1117,7 @@ static inline int myth_uncond_swap_body(
     next_th = next_uv->th;
   }
   #else
-  assert(next_th != NULL);
+  if (next_th == NULL) { return EINVAL; }
   #endif
   next_uv->th = NULL; /* for the next usage */
 
@@ -1173,7 +1173,7 @@ static inline int myth_uncond_swap_with_body(
     next_th = next_uv->th;
   }
   #else
-  assert(next_th != NULL);
+  if (next_th == NULL) { return EINVAL; }
   #endif
 
   env->this_thread = next_th;
