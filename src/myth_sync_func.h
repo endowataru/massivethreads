@@ -1194,6 +1194,17 @@ static inline int myth_uncond_swap_with_body(
 
 // __attribute__((used,noinline,sysv_abi))
 MYTH_CTX_CALLBACK
+void myth_uncond_wait_with_ret_cb(
+  void * const arg1, void * const arg2, void * const arg3)
+{
+  myth_running_env_t const env = (myth_running_env_t)arg1;
+  myth_thread_t const next_th = (myth_thread_t)arg2;
+  (void)arg3;
+  myth_queue_push(&env->runnable_q, next_th);
+}
+
+// __attribute__((used,noinline,sysv_abi))
+MYTH_CTX_CALLBACK
 void myth_uncond_wait_with_cb(
   void * const arg1, void * const arg2, void * const arg3)
 {
@@ -1207,16 +1218,17 @@ void myth_uncond_wait_with_cb(
     /* Switch to "next_th". */
   } else {
     /* Return back to "cur_uv". */
-    myth_thread_t const cur_th = (myth_thread_t)cur_uv->th;
+    myth_thread_t const cur_th = cur_uv->th;
     myth_running_env_t const env = cur_th->env;
     myth_thread_t const next_th = env->this_thread;
     env->this_thread = cur_th;
     cur_uv->th = NULL;
-    if (next_th) {
-      /* Return the thread. */
-      myth_queue_push(&env->runnable_q, next_th);
+    if (next_th != NULL) {
+      myth_set_context_withcall(&cur_th->context,
+        myth_uncond_wait_with_ret_cb, env, next_th, NULL); /* noreturn */
+    } else {
+      myth_set_context(&cur_th->context); /* noreturn */
     }
-    myth_set_context(&cur_th->context); /* noreturn */
   }
 }
 
